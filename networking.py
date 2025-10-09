@@ -11,6 +11,8 @@ import types
 import threading
 from queue import Queue
 
+import time
+
 from helper import getFileContent
 
 
@@ -92,22 +94,24 @@ def runServer(ip:str, port:int)->int:
 
 
 def clientSend(sock:socket.socket, q:Queue)->int:
-    global CLIENT_MESSAGE_FLAG
 
     while True:
-        if(CLIENT_MESSAGE_FLAG):
-            sock.sendall(str(q.get()).encode("utf-8"))
-            CLIENT_MESSAGE_FLAG = False
+        queueInput = q.get()
 
-        if(not CLIENT_THREAD_FLAG):
+        if(queueInput == None):
+            print("Termination signal received...")
             break
+
+        sock.sendall(str(queueInput).encode("utf-8"))
+
+    print("Exiting...")
 
     return 0
 
-def clientReceive(sock:socket.socket)->int:
+def clientReceive(sock:socket.socket, q:Queue)->int:
 
     while True:
-        print(f"$ {sock.recv(DEFAULT_SOCKET_BYTE_AMOUNT).decode("utf-8")}")
+        print(f"{sock.getpeername()[0]}: {sock.recv(DEFAULT_SOCKET_BYTE_AMOUNT).decode("utf-8")}")
 
         if(not CLIENT_THREAD_FLAG):
             break
@@ -119,16 +123,23 @@ def runClient(ip:str, port:int)->int:
     sock.connect_ex((ip, port))
 
     messageQueue = Queue()
+    recieveQueue = Queue()
 
-    clientSendThread = threading.Thread(target=clientSend, args=(sock, messageQueue))
-    clientReceiveTread = threading.Thread(target=clientReceive, args=(sock))
+
+    clientSendThread = threading.Thread(target=clientSend, args=(sock, messageQueue), daemon=True)
+    clientReceiveTread = threading.Thread(target=clientReceive, args=(sock, recieveQueue), daemon=True)
 
     clientSendThread.start()
     clientReceiveTread.start()
 
-    messageQueue.put("hi")
-    CLIENT_MESSAGE_FLAG = True
-    CLIENT_THREAD_FLAG = False
+    while True:
+        stdin = input("")
+
+        if(stdin == "exit"):
+            messageQueue.put(None)
+            break
+        if(stdin != ""):
+            messageQueue.put(stdin)
 
     sock.close()
 
