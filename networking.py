@@ -1,19 +1,17 @@
+'''
+10/7/2025
+Kristijan Stojanovski
+
+Various networking functions
+'''
+
 import socket
-import ipaddress
+import selectors
+import types
+import threading
+from queue import Queue
 
-
-def getFileContent(filename)->str:
-    """
-    Displays the content of a given file to the console.
-    """
-    try:
-        with open(filename, 'r') as f:
-            content = f.read()
-            return str(content)
-    except FileNotFoundError:
-        print(f"Error: File '{filename}' not found.")
-    except Exception as e:
-        print(f"An error occurred: {e}")
+from helper import getFileContent
 
 
 
@@ -22,6 +20,40 @@ HOST = "127.0.0.1"
 PORT = 65432
 
 MAX_CONNECTION_BACKLOG = int(getFileContent("/proc/sys/net/core/somaxconn"))
+DEFAULT_SOCKET_BYTE_AMOUNT = 1024
+CLIENT_MESSAGE_FLAG = False
+CLIENT_THREAD_FLAG = True
+
+sel = selectors.DefaultSelector()
+
+
+def accept_wrapper(sock):
+    connection, address = sock.accept()
+    print("Connection from: " + str(address))
+
+    connection.setblocking(False)
+    data = types.SimpleNamespace(addr=address, inb=b"", outb=b"")
+    events = selectors.EVENT_READ | selectors.EVENT_WRITE
+    sel.register(connection, events, data=data)
+
+
+def service_connection(key, mask):
+    sock = key.fileobj
+    data = key.data
+
+    if mask & selectors.EVENT_READ:
+        message = sock.recv(DEFAULT_SOCKET_BYTE_AMOUNT)
+        if message:
+            print(f"Echoing message to {data.addr}: {message.decode("utf-8")}")
+            sock.send(message)
+
+        else:
+            print(f"Closing connection to {data.addr}...")
+            sel.unregister(sock)
+            sock.close()
+            print("Connection closed.")
+
+
 
 def runServer(ip:str, port:int)->int:
 
@@ -35,31 +67,68 @@ def runServer(ip:str, port:int)->int:
     else:
         sock.listen(1)
 
+    print("Listening on %s:%d" % (ip, port))
+    sock.setblocking(False)
+    sel.register(sock, selectors.EVENT_READ, data=None)
 
-    conn, addr = sock.accept()
+    try:
+        while True:
+            events = sel.select(timeout=None)
+            for key, mask in events:
+                if key.data is None:
+                    accept_wrapper(key.fileobj)
+                else:
+                    service_connection(key, mask)
 
-    print("Connected by", addr)
+    except KeyboardInterrupt:
+        print("Caught keyboard interrupt, exiting...")
+    finally:
+        sel.unregister(sock)
+        sel.close()
 
-    while True:
-        data = conn.recv(1024)
-        if not data:
-            break
-        conn.sendall(data)
-
-    conn.close()
     sock.close()
 
     return 0
 
 
+def clientSend(sock:socket.socket, q:Queue)->int:
+    global CLIENT_MESSAGE_FLAG
 
+    while True:
+        if(CLIENT_MESSAGE_FLAG):
+            sock.sendall(str(q.get()).encode("utf-8"))
+            CLIENT_MESSAGE_FLAG = False
+
+        if(not CLIENT_THREAD_FLAG):
+            break
+
+    return 0
+
+def clientReceive(sock:socket.socket)->int:
+
+    while True:
+        print(f"$ {sock.recv(DEFAULT_SOCKET_BYTE_AMOUNT).decode("utf-8")}")
+
+        if(not CLIENT_THREAD_FLAG):
+            break
+
+    return 0
 
 def runClient(ip:str, port:int)->int:
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect((ip, port))
-    sock.sendall(b"Hello World!")
-    data = sock.recv(1024)
-    print(f"Received {data!r}")
+    sock.connect_ex((ip, port))
+
+    messageQueue = Queue()
+
+    clientSendThread = threading.Thread(target=clientSend, args=(sock, messageQueue))
+    clientReceiveTread = threading.Thread(target=clientReceive, args=(sock))
+
+    clientSendThread.start()
+    clientReceiveTread.start()
+
+    messageQueue.put("hi")
+    CLIENT_MESSAGE_FLAG = True
+    CLIENT_THREAD_FLAG = False
 
     sock.close()
 
