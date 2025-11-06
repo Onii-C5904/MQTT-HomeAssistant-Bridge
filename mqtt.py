@@ -6,7 +6,7 @@ import json
 import ssl
 from enum import IntEnum, auto
 
-IP = "192.168.1.119"
+HOST = "192.168.1.91"
 PORT = 1883
 CLIENTID = "TEST"
 
@@ -58,16 +58,29 @@ class MQTTProtocolLevel(IntEnum):
     V3_1_1 = 0x04
 
 
-def constructControlHeader(self, packetType: ControlHeaderType, flags: MQTTFlags, variableHeaderSize: int, payloadSize: int) -> bytearray:
+def bitwiseOrForBytes(byte1: bytes, byte2: bytes) -> bytes:
+    result = bytearray(len(byte1))
+
+    print(len(byte1))
+    print(len(byte2))
+
+    for i in range(len(byte1)):
+        result[i] = byte1[i] | byte2[i]
+
+    return bytes(result)
+
+def constructControlHeader(packetType: ControlHeaderType, variableHeaderSize: int, payloadSize: int) -> bytearray:
     fixedHeader = bytearray()
 
-    fixedHeader += ControlHeaderType.CONNECT
+    fixedHeader += int.to_bytes(packetType)
     remainingLength = variableHeaderSize + payloadSize
-    fixedHeader += struct.pack("!H", remainingLength)
+    print(variableHeaderSize)
+    print(payloadSize)
+    fixedHeader += int.to_bytes(remainingLength)
 
     return fixedHeader
 
-def constructVariableHeader(self, headerFlags: bytes = 0) -> bytearray:
+def constructVariableHeader(headerFlags: bytes) -> bytearray:
 
     '''
     Protocol Name Length 2x bytes
@@ -82,9 +95,11 @@ def constructVariableHeader(self, headerFlags: bytes = 0) -> bytearray:
     # Variable Header Boiler Plate
 
     protocolName = "MQTT".encode("utf-8")
+    print(len(protocolName))
 
+    variableHeader += len(protocolName).to_bytes(2, byteorder='big')
     variableHeader += protocolName
-    variableHeader += bytes(MQTTProtocolLevel.V3_1_1)
+    variableHeader += MQTTProtocolLevel.V3_1_1.to_bytes(1, byteorder='big')
     variableHeader += headerFlags
 
     return variableHeader
@@ -94,7 +109,7 @@ def constructPayload(self) -> bytearray:
 
 
 class MQTTSocketClient:
-    def __init__(self, clientID: str, username: str, password: str, host: str, port: int, tls=True, keepalive=60, timeout=10):
+    def __init__(self, clientID: str, username: str, password: str, host: str, port: int, tls=False, keepalive=60, timeout=10):
         self.clientID = clientID
         self.username = username
         self.password = password
@@ -114,33 +129,41 @@ class MQTTSocketClient:
         return tlsHandler.wrap_socket(self.sock, server_hostname=self.host)
 
     def __receive_packet(self) -> tuple[IntEnum, bytes]:
+        self.sock.listen()
         msg = self.sock.recv(1024)
 
-        fixedHeaderBytes = msg[:2]
-        if fixedHeaderBytes & ControlHeaderType.CONNACK:
-            return ControlHeaderType.CONNACK, bytes(0)
+        print(msg)
 
-    def __constructConnectPacket(self,  client_id: str, keepalive: int, username: str | None, password: str | None, will_topic: bytes | None, will_payload: bytes | None, will_retain: bool = True, clean_start: bool = True, will_qos: MQTTWillQoS = MQTTWillQoS.AT_MOST_ONCE) -> bytes:
+        fixedHeaderBytes = msg[:2]
+        if int(fixedHeaderBytes) == ControlHeaderType.CONNACK:
+            return ControlHeaderType.CONNACK, int.to_bytes(0)
+
+    def __constructConnectPacket(self,  client_id: str, keepalive: int, username: str | None, password: str | None, will_topic: bytes | None, will_payload: bytes | None, will_retain: bool = True, clean_start: bool = True, will_qos: MQTTWillQoS = MQTTWillQoS.QOS1) -> bytes:
 
         # Construct CONNECT Packet Variable Header flags
-        variableFlags = 0
+        variableFlags = b'\x00'
+
         if clean_start:
-            variableFlags |= MQTTConnectFlags.CLEAN_SESSION
+            print("clean_start")
+            variableFlags = bitwiseOrForBytes(variableFlags, MQTTConnectFlags.CLEAN_SESSION.to_bytes()) # cause supporting bitwise operations would make too much sense
+            print("variableFlags", variableFlags)
 
         if username is not None:
-            variableFlags |= MQTTConnectFlags.USERNAME
+            variableFlags = bitwiseOrForBytes(variableFlags, MQTTConnectFlags.USERNAME.to_bytes())
 
         if password is not None:
-            variableFlags |= MQTTConnectFlags.PASSWORD
+            variableFlags = bitwiseOrForBytes(variableFlags, MQTTConnectFlags.PASSWORD.to_bytes())
+
 
         willExists = (will_topic is not None) and (will_payload is not None)
 
         if willExists:
-            variableFlags |= MQTTConnectFlags.WILL_FLAG
-            variableFlags |= will_qos
+            variableFlags = bitwiseOrForBytes(variableFlags, MQTTConnectFlags.WILL_FLAG.to_bytes())
+            variableFlags = bitwiseOrForBytes(variableFlags, will_qos.to_bytes())
 
             if will_retain:
-                variableFlags |= MQTTConnectFlags.WILL_RETAIN
+                variableFlags = bitwiseOrForBytes(variableFlags, MQTTConnectFlags.WILL_RETAIN.to_bytes())
+
 
 
         variableHeader = constructVariableHeader(variableFlags)
@@ -154,7 +177,7 @@ class MQTTSocketClient:
         payload += client_id.encode("utf-8")
 
         if willExists:
-            payload += will_topic.encode("utf-8")
+            payload += will_topic
             payload += will_payload
 
         if username is not None:
@@ -166,6 +189,14 @@ class MQTTSocketClient:
 
         # Construct Fixed Header
         fixedHeader = constructControlHeader(ControlHeaderType.CONNECT, len(variableHeader), len(payload))
+
+        print(f"Fixed Header: {fixedHeader}")
+        print(f"Fixed Header Hex: {fixedHeader.hex()}")
+        print(f"Variable Header: {variableHeader}")
+        print(f"Variable Header Hex: {variableHeader.hex()}")
+        print(f"Payload: {payload}")
+        print(f"Payload Hex: {payload.hex()}")
+
 
         return fixedHeader + variableHeader + payload
 
@@ -186,17 +217,26 @@ class MQTTSocketClient:
 
         connectPacket = self.__constructConnectPacket(self.clientID, self.keepalive, self.username, self.password, b"home/bme680/status", b"offline")
 
+        print(connectPacket)
+
         self.sock.sendall(connectPacket)
         self.last_send = time.time()
         self.connectionTime = self.last_send
+
+        print(30)
+
+
 
         # Confirm The Connection
 
         packetType = self.__receive_packet()[0] # The first index is the packet type, for a connack there is no payload, only thing we care about is that it is a connack
 
+
         if packetType != ControlHeaderType.CONNACK:
             print("Connected But No CONNACK Packet Received")
             raise socket.error
+
+        print(10)
 
 
     def __disconnect(self):
@@ -212,11 +252,12 @@ class MQTTSocketClient:
         pass
 
     def run(self):
+        print("Starting MQTT Server")
         try:
             self.__connect()
         except socket.error:
             print(f"Failed to connect to MQTT server at {self.host}:{self.port}")
-            self.sock.close()
+            quit()
 
         print("connection succeeded")
 
@@ -225,5 +266,6 @@ class MQTTSocketClient:
 
 
 
-if __name__ == '__mqtt__':
-    MQTTSocketClient("testingSetup", "user", "password")
+
+client = MQTTSocketClient("testingSetup", "oniic", "Saltersimp5904", host=HOST, port=PORT)
+client.run()
