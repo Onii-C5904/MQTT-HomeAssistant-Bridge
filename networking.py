@@ -12,9 +12,15 @@ import types
 import threading
 from queue import Queue
 
+
 # SCRIPTS
 from helper import getFileContent
 import temp as parser
+
+import time
+
+from helper import getFileContent
+
 
 
 
@@ -144,8 +150,11 @@ def runClient(ip:str, port:int)->int:
                 break
             if(stdin != ""):
                 messageQueue.put(stdin)
+
+            time.sleep(5)
     except KeyboardInterrupt:
         print("\nCaught keyboard interrupt, exiting...")
+
 
     sock.close()
 

@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+
+'''
+11/4/2025
+Dan Howard
+
+Modified by Kristijan Stojanovski
+
+Parses data from an iio device
+'''
 import os
 
 IIO_BASE = "/sys/bus/iio/devices/"
