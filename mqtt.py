@@ -97,7 +97,7 @@ def constructVariableHeader(headerFlags: bytes) -> bytearray:
     protocolName = "MQTT".encode("utf-8")
     print(len(protocolName))
 
-    variableHeader += len(protocolName).to_bytes(2, byteorder='big')
+    variableHeader += len(protocolName).to_bytes(1, byteorder='big')
     variableHeader += protocolName
     variableHeader += MQTTProtocolLevel.V3_1_1.to_bytes(1, byteorder='big')
     variableHeader += headerFlags
@@ -174,11 +174,14 @@ class MQTTSocketClient:
 
         # Construct Payload
         payload = bytearray()
-        payload += client_id.encode("utf-8")
+        payload += CLIENTID.encode("utf-8")
+
+        '''
 
         if willExists:
             payload += will_topic
             payload += will_payload
+        '''
 
         if username is not None:
             payload += username.encode("utf-8")
