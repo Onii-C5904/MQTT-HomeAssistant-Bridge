@@ -7,7 +7,7 @@ import json
 import ssl
 from enum import IntEnum, auto
 
-HOST = "192.168.122.228"
+HOST = "homeassistant"
 PORT = 1883
 CLIENTID = "client-1"
 
@@ -79,7 +79,7 @@ def enc_utf8(s: str) -> bytes:
     b = s.encode("utf-8")
     return struct.pack("!H", len(b)) + b
 
-def enc_varint(n: int) -> bytes:
+def encodeVarint(n: int) -> bytes:
     out = bytearray()
     while True:
         digit = n % 128
@@ -91,11 +91,11 @@ def enc_varint(n: int) -> bytes:
             break
     return bytes(out)
 
-def dec_varint(recv_fn) -> int:
+def decodeVarint(receive_function) -> int:
     multiplier = 1
     value = 0
     while True:
-        b = recv_fn(1)
+        b = receive_function(1)
         if not b:
             raise ConnectionError("socket closed decoding varint")
         byte = b[0]
@@ -114,7 +114,7 @@ def constructControlHeader(packetType: ControlHeaderType, variableHeaderSize: in
 
     remainingLength = variableHeaderSize + payloadSize
 
-    fixedHeader += enc_varint(remainingLength)
+    fixedHeader += encodeVarint(remainingLength)
 
     return fixedHeader
 
@@ -180,14 +180,16 @@ class MQTTSocketClient:
 
         return b''.join(packetChunks)
 
-    def __receive_packet(self) -> tuple[IntEnum, bytes]:
+    def __receive_packet(self) -> tuple[int, bytes]:
 
         byte1 = self.__receiveAmountOfBytes(1)[0]
+        packetType = byte1 & 0xF0
 
-        print(byte1)
+        remaining = decodeVarint(self.__receiveAmountOfBytes)
 
-        if int(byte1) == ControlHeaderType.CONNACK:
-            return ControlHeaderType.CONNACK, int(0).to_bytes()
+        payload = self.__receiveAmountOfBytes(remaining) if remaining else b''
+
+        return packetType, payload
 
     def __constructConnectPacket(self,  client_id: str, keepalive: int, username: str | None, password: str | None, will_topic: bytes | None, will_payload: bytes | None, will_retain: bool = True, clean_start: bool = True, will_qos: MQTTWillQoS = MQTTWillQoS.QOS1) -> bytes:
 
@@ -262,7 +264,7 @@ class MQTTSocketClient:
         return bytes([ControlHeaderType.DISCONNECT, 0])
 
     def __constructPingReqPacket(self) -> bytes:
-        return bytes([ControlHeaderType.PINGREQ, 0])
+        return bytes([ControlHeaderType.PINGREQ, 0x00])
 
     def __connect(self):
 
@@ -282,16 +284,17 @@ class MQTTSocketClient:
         self.last_send = time.time()
         self.connectionTime = self.last_send
 
-        print("Packet Sent")
+        print("Connect Packet Sent")
 
         # Confirm The Connection
-        while True:
-            packetType = self.__receive_packet()[0] # The first index is the packet type, for a connack there is no payload, only thing we care about is that it is a connack
+        connackPacket = self.__receive_packet()
 
+        if connackPacket[0] == ControlHeaderType.CONNACK:
+            print("Connack Packet Received")
 
-        if packetType != ControlHeaderType.CONNACK.to_bytes(1, byteorder='big'):
-            print("Connected But No CONNACK Packet Received")
-            raise socket.error
+        self.sock.sendall(self.__constructPingReqPacket())
+        type, payload = self.__receive_packet()
+        assert type == ControlHeaderType.PINGRESP and payload == b''
 
         print("CONNACK Packet Received")
 
