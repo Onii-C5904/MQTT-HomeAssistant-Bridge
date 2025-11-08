@@ -235,7 +235,7 @@ class MQTTSocketClient:
             variableHeader += qosPacketIdentifier.to_bytes(2, byteorder='big')
 
 
-        payload = enc_utf8(payloadIn)
+        payload = payloadIn.encode('utf-8')
 
         controlFlags = 0x00
         controlFlags |= MQTTFlags.RETAIN
@@ -354,7 +354,16 @@ class MQTTSocketClient:
             quit()
         print("connection succeeded")
 
-        dummyTopic = "homeassistant/sensor/bme680/state"
+        temp.init()
+        sensorData = temp.parse_Data()
+
+        dataFlag = True
+
+        for value in sensorData.values():
+            if isinstance(value, (str, None)):
+                dataFlag = False
+
+        bme680topic = "homeassistant/sensor/bme680/state"
 
         dummy_sensor_data = {
             "Temperature": 24.6,
@@ -363,7 +372,7 @@ class MQTTSocketClient:
             "Gas": 12000
         }
 
-        cfgs = {
+        bme680config = {
             "homeassistant/sensor/bme680_temperature/config": {
                 "name": "BME680 Temperature", "unique_id": "bme680_temperature",
                 "state_topic": "homeassistant/sensor/bme680/state",
@@ -398,9 +407,12 @@ class MQTTSocketClient:
             }
         }
 
-        payload = json.dumps(dummy_sensor_data)
+        if dataFlag:
+            payload = json.dumps(sensorData)
+        else:
+            payload = json.dumps(dummy_sensor_data)
 
-        for topic, config in cfgs.items():
+        for topic, config in bme680config.items():
             self.__publish(topic, json.dumps(config), MQTTFlags.QOS1)
 
         self.__publish("homeassistant/sensor/bme680/availability", "online", MQTTFlags.QOS1)
