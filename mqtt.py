@@ -305,45 +305,44 @@ class MQTTSocketClient:
             itterations = 1
             packet = self.__constructPublishPacket(key, value, qosLevel, itterations, False)
 
-            match qosLevel:
-                case MQTTFlags.QOS1:
-                    while True:
-                        self.sock.sendall(packet)
-                        print(packet)
-                        print(packet.hex())
+            if MQTTFlags.QOS1:
+                while True:
+                    self.sock.sendall(packet)
+                    print(packet)
+                    print(packet.hex())
 
-                        inPacket = self.__receive_packet()
+                    inPacket = self.__receive_packet()
 
-                        if inPacket[0] == ControlHeaderType.PUBACK:
+                    if inPacket[0] == ControlHeaderType.PUBACK:
+                        successfulPackets += 1
+                        print(f"PUBACK Packet Received. Successful Packets: {successfulPackets}")
+                        break
+
+                    itterations += 1
+                    if itterations > MAX_QOS_PACKET_ATTEMPTS:
+                        print(f"Max QoS1 Send Attempts Reached.\nPacket: {packet}")
+                        break
+
+                    packet = self.__constructPublishPacket(key, value, qosLevel, itterations, True)
+
+            elif MQTTFlags.QOS2:
+                while True:
+                    self.sock.sendall(packet)
+                    inPacket = self.__receive_packet()
+
+                    if inPacket[0] == ControlHeaderType.PUBREC:
+                        self.sock.sendall(self.__constructPubRelPacket())
+                        inPacket == self.__receive_packet()
+                        if inPacket[0] == ControlHeaderType.PUBCOMP:
                             successfulPackets += 1
-                            print(f"PUBACK Packet Received. Successful Packets: {successfulPackets}")
                             break
 
-                        itterations += 1
-                        if itterations > MAX_QOS_PACKET_ATTEMPTS:
-                            print(f"Max QoS1 Send Attempts Reached.\nPacket: {packet}")
-                            break
+                    itterations += 1
+                    if itterations > MAX_QOS_PACKET_ATTEMPTS:
+                        print(f"Max QoS1 Send Attempts Reached.\nPacket: {packet}")
+                        break
 
-                        packet = self.__constructPublishPacket(key, value, qosLevel, itterations, True)
-
-                case MQTTFlags.QOS2:
-                    while True:
-                        self.sock.sendall(packet)
-                        inPacket = self.__receive_packet()
-
-                        if inPacket[0] == ControlHeaderType.PUBREC:
-                            self.sock.sendall(self.__constructPubRelPacket())
-                            inPacket == self.__receive_packet()
-                            if inPacket[0] == ControlHeaderType.PUBCOMP:
-                                successfulPackets += 1
-                                break
-
-                        itterations += 1
-                        if itterations > MAX_QOS_PACKET_ATTEMPTS:
-                            print(f"Max QoS1 Send Attempts Reached.\nPacket: {packet}")
-                            break
-
-                        packet = self.__constructPublishPacket(key, value, qosLevel, itterations, False)
+                    packet = self.__constructPublishPacket(key, value, qosLevel, itterations, False)
 
     def run(self):
         print("Starting MQTT Client")
