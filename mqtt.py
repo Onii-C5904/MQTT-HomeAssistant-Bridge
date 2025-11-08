@@ -1,10 +1,9 @@
 import socket
-import sys
 import time
 from threading import Event
 import json
 import ssl
-from enum import IntEnum, auto
+from enum import IntEnum
 from helper import *
 import temp
 
@@ -95,7 +94,7 @@ def constructVariableHeader(headerFlags: bytes) -> bytearray:
 
     return variableHeader
 
-def constructPayload(self, payload: str | bytes) -> bytearray:
+def constructPayload(self, payload: str) -> bytearray:
     pass
 
 
@@ -109,7 +108,7 @@ class MQTTSocketClient:
         self.tls = tls
         self.keepalive = keepalive
         self.timeout = timeout
-        self.sock: socket.socket | None = None
+        self.sock: socket.socket = None
         self.last_receive = time.time()
         self.last_send = time.time()
         self.connectionTime = None
@@ -145,7 +144,7 @@ class MQTTSocketClient:
 
         return packetType, payload
 
-    def __constructConnectPacket(self,  client_id: str, keepalive: int, username: str | None, password: str | None, will_topic: bytes | None, will_payload: bytes | None, will_retain: bool = True, clean_start: bool = True, will_qos: MQTTWillQoS = MQTTWillQoS.QOS1) -> bytes:
+    def __constructConnectPacket(self,  client_id: str, keepalive: int, username: str, password: str, will_topic: bytes, will_payload: bytes, will_retain: bool = True, clean_start: bool = True, will_qos: MQTTWillQoS = MQTTWillQoS.QOS1) -> bytes:
 
         # Construct CONNECT Packet Variable Header flags
         variableFlags = b'\x00'
@@ -214,7 +213,7 @@ class MQTTSocketClient:
     def __constructPingReqPacket(self) -> bytes:
         return bytes([ControlHeaderType.PINGREQ, 0x00])
 
-    def __constructPublishPacket(self, topic: str, payloadIn: str, qosLevel: MQTTFlags, qosPacketIdentifier: int | None, duplicate: bool = False) -> bytes:
+    def __constructPublishPacket(self, topic: str, payloadIn: str, qosLevel: MQTTFlags, qosPacketIdentifier: int, duplicate: bool = False) -> bytes:
         '''
         Fixed Header                    Variable Header                 Payload
         PacketType - 4 Bits             Topic Name Length - 2 Bytes     Payload Length - 2 Bytes
@@ -289,7 +288,7 @@ class MQTTSocketClient:
 
     def ping(self):
         pass
-    def __publish(self, topicLevel: str, topicData: str | dict | int | float | bool, qosLevel: MQTTFlags):
+    def __publish(self, topicLevel: str, topicData, qosLevel: MQTTFlags):
         constructedTopics = {}
 
         if isinstance(topicData, (str, int, float, bool)):
