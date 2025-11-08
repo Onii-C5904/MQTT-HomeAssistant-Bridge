@@ -1,15 +1,17 @@
 import socket
 import sys
 import time
-import struct
 from threading import Event
 import json
 import ssl
 from enum import IntEnum, auto
+from helper import *
+import temp
 
 HOST = "homeassistant"
 PORT = 1883
 CLIENTID = "client-1"
+MAX_QOS_PACKET_ATTEMPTS = 10
 
 STOP = Event()
 
@@ -59,58 +61,10 @@ class MQTTProtocolLevel(IntEnum):
     V3_1_1 = 0x04
 
 
-def bitwiseOrForBytes(byte1: bytes, byte2: bytes) -> bytes:
-    result = bytearray(len(byte1))
-
-    for i in range(len(byte1)):
-        result[i] = byte1[i] | byte2[i]
-
-    return bytes(result)
-
-def bitwiseAndForBytes(byte1: bytes, byte2: bytes) -> bytes:
-    result = bytearray(len(byte1))
-
-    for i in range(len(byte1)):
-        result[i] = byte1[i] & byte2[i]
-
-    return bytes(result)
-
-def enc_utf8(s: str) -> bytes:
-    b = s.encode("utf-8")
-    return struct.pack("!H", len(b)) + b
-
-def encodeVarint(n: int) -> bytes:
-    out = bytearray()
-    while True:
-        digit = n % 128
-        n //= 128
-        if n > 0:
-            digit |= 0x80
-        out.append(digit)
-        if n == 0:
-            break
-    return bytes(out)
-
-def decodeVarint(receive_function) -> int:
-    multiplier = 1
-    value = 0
-    while True:
-        b = receive_function(1)
-        if not b:
-            raise ConnectionError("socket closed decoding varint")
-        byte = b[0]
-        value += (byte & 0x7F) * multiplier
-        if (byte & 0x80) == 0:
-            break
-        multiplier *= 128
-        if multiplier > 128**4:
-            raise ValueError("Malformed Remaining Length")
-    return value
-
-def constructControlHeader(packetType: ControlHeaderType, variableHeaderSize: int, payloadSize: int) -> bytearray:
+def constructControlHeader(packetType: ControlHeaderType, variableHeaderSize: int, payloadSize: int, flags: int = 0x00) -> bytearray:
     fixedHeader = bytearray()
 
-    fixedHeader += packetType.to_bytes()
+    fixedHeader += (packetType | flags).to_bytes(1, byteorder='big')
 
     remainingLength = variableHeaderSize + payloadSize
 
@@ -141,7 +95,7 @@ def constructVariableHeader(headerFlags: bytes) -> bytearray:
 
     return variableHeader
 
-def constructPayload(self) -> bytearray:
+def constructPayload(self, payload: str | bytes) -> bytearray:
     pass
 
 
@@ -231,12 +185,6 @@ class MQTTSocketClient:
         payload += len(client_id.encode("utf-8")).to_bytes(2, byteorder='big')
         payload += client_id.encode("utf-8")
 
-        '''
-
-        if willExists:
-            payload += will_topic
-            payload += will_payload
-        '''
 
         if username is not None:
             payload += len(username.encode("utf-8")).to_bytes(2, byteorder='big')
@@ -265,6 +213,42 @@ class MQTTSocketClient:
 
     def __constructPingReqPacket(self) -> bytes:
         return bytes([ControlHeaderType.PINGREQ, 0x00])
+
+    def __constructPublishPacket(self, topic: str, payloadIn: str, qosLevel: MQTTFlags, qosPacketIdentifier: int | None, duplicate: bool = False) -> bytes:
+        '''
+        Fixed Header                    Variable Header                 Payload
+        PacketType - 4 Bits             Topic Name Length - 2 Bytes     Payload Length - 2 Bytes
+        []                              Topic Name                      Data
+        Flags - 4 Bits                  Packet Identifier(Qos > 0)
+        [Duplicate, Qos, Retain]
+        Remaining Length - 1-4 Bytes
+        Retain Always True
+        Duplicate - Input
+        Qos - Input
+        '''
+
+        topicBytes = enc_utf8(topic)
+
+        variableHeader = bytearray(topicBytes)
+
+        if qosPacketIdentifier is not None:
+            variableHeader += qosPacketIdentifier.to_bytes(2, byteorder='big')
+
+
+        payload = enc_utf8(payloadIn)
+
+        controlFlags = 0x00
+        controlFlags |= MQTTFlags.RETAIN
+        controlFlags |= qosLevel
+        if duplicate:
+            controlFlags |= MQTTFlags.DUP
+
+        fixedHeader = constructControlHeader(ControlHeaderType.PUBLISH, len(variableHeader), len(payload), controlFlags)
+
+        return fixedHeader + variableHeader + payload
+
+    def __constructPubRelPacket(self) -> bytes:
+        return bytes([ControlHeaderType.PUBREL, 0x00])
 
     def __connect(self):
 
@@ -298,7 +282,6 @@ class MQTTSocketClient:
 
         print("CONNACK Packet Received")
 
-
     def __disconnect(self):
         self.sock.sendall(self.__constructDisconnectPacket())
         self.sock.close()
@@ -306,10 +289,61 @@ class MQTTSocketClient:
 
     def ping(self):
         pass
-    def publish(self):
-        pass
-    def subscribe(self):
-        pass
+    def __publish(self, topicLevel: str, topicData: str | dict | int | float | bool, qosLevel: MQTTFlags):
+        constructedTopics = {}
+
+        if isinstance(topicData, (str, int, float, bool)):
+            constructedTopics[topicLevel] = str(topicData)
+
+        elif isinstance(topicData, dict):
+            for key, value in topicData.items():
+                constructedTopics[key] = str(value)
+
+        successfulPackets = 0
+
+        for key, value in constructedTopics.items():
+            itterations = 1
+            packet = self.__constructPublishPacket(key, value, qosLevel, itterations, False)
+
+            match qosLevel:
+                case MQTTFlags.QOS1:
+                    while True:
+                        self.sock.sendall(packet)
+                        print(packet)
+                        print(packet.hex())
+
+                        inPacket = self.__receive_packet()
+
+                        if inPacket[0] == ControlHeaderType.PUBACK:
+                            successfulPackets += 1
+                            print(f"PUBACK Packet Received. Successful Packets: {successfulPackets}")
+                            break
+
+                        itterations += 1
+                        if itterations > MAX_QOS_PACKET_ATTEMPTS:
+                            print(f"Max QoS1 Send Attempts Reached.\nPacket: {packet}")
+                            break
+
+                        packet = self.__constructPublishPacket(key, value, qosLevel, itterations, True)
+
+                case MQTTFlags.QOS2:
+                    while True:
+                        self.sock.sendall(packet)
+                        inPacket = self.__receive_packet()
+
+                        if inPacket[0] == ControlHeaderType.PUBREC:
+                            self.sock.sendall(self.__constructPubRelPacket())
+                            inPacket == self.__receive_packet()
+                            if inPacket[0] == ControlHeaderType.PUBCOMP:
+                                successfulPackets += 1
+                                break
+
+                        itterations += 1
+                        if itterations > MAX_QOS_PACKET_ATTEMPTS:
+                            print(f"Max QoS1 Send Attempts Reached.\nPacket: {packet}")
+                            break
+
+                        packet = self.__constructPublishPacket(key, value, qosLevel, itterations, False)
 
     def run(self):
         print("Starting MQTT Client")
@@ -318,8 +352,64 @@ class MQTTSocketClient:
         except Exception as e:
             print(f"Failed to connect to MQTT server at {self.host}:{self.port}. Error: {e}")
             quit()
-
         print("connection succeeded")
+
+        dummyTopic = "homeassistant/sensor/bme680/state"
+
+        dummy_sensor_data = {
+            "Temperature": 24.6,
+            "Humidity": 41.3,
+            "Pressure": 1012.8,
+            "Gas": 12000
+        }
+
+        cfgs = {
+            "homeassistant/sensor/bme680_temperature/config": {
+                "name": "BME680 Temperature", "unique_id": "bme680_temperature",
+                "state_topic": "homeassistant/sensor/bme680/state",
+                "device_class": "temperature", "unit_of_measurement": "°C",
+                "value_template": "{{ value_json.Temperature }}",
+                "device": {"identifiers": ["bme680_bridge"], "name": "BME680 Bridge"},
+                "availability_topic": "homeassistant/sensor/bme680/availability"
+            },
+            "homeassistant/sensor/bme680_humidity/config": {
+                "name": "BME680 Humidity", "unique_id": "bme680_humidity",
+                "state_topic": "homeassistant/sensor/bme680/state",
+                "device_class": "humidity", "unit_of_measurement": "%",
+                "value_template": "{{ value_json.Humidity }}",
+                "device": {"identifiers": ["bme680_bridge"]},
+                "availability_topic": "homeassistant/sensor/bme680/availability"
+            },
+            "homeassistant/sensor/bme680_pressure/config": {
+                "name": "BME680 Pressure", "unique_id": "bme680_pressure",
+                "state_topic": "homeassistant/sensor/bme680/state",
+                "device_class": "pressure", "unit_of_measurement": "hPa",
+                "value_template": "{{ value_json.Pressure }}",
+                "device": {"identifiers": ["bme680_bridge"]},
+                "availability_topic": "homeassistant/sensor/bme680/availability"
+            },
+            "homeassistant/sensor/bme680_gas/config": {
+                "name": "BME680 Gas", "unique_id": "bme680_gas",
+                "state_topic": "homeassistant/sensor/bme680/state",
+                "unit_of_measurement": "Ω",
+                "value_template": "{{ value_json.Gas }}",
+                "device": {"identifiers": ["bme680_bridge"]},
+                "availability_topic": "homeassistant/sensor/bme680/availability"
+            }
+        }
+
+        payload = json.dumps(dummy_sensor_data)
+
+        for topic, config in cfgs.items():
+            self.__publish(topic, json.dumps(config), MQTTFlags.QOS1)
+
+        self.__publish("homeassistant/sensor/bme680/availability", "online", MQTTFlags.QOS1)
+        self.__publish("homeassistant/sensor/bme680/state", payload, MQTTFlags.QOS1)
+
+
+        for i in range(20, 0, -1):
+            print(f"Stopping in {i}...")
+            time.sleep(1)
 
         self.__disconnect()
 
