@@ -362,7 +362,7 @@ class MQTTSocketClient:
             "homeassistant/sensor/bme680_temperature/config": {
                 "name": "BME680 Temperature", "unique_id": "bme680_temperature",
                 "state_topic": "homeassistant/sensor/bme680/state",
-                "device_class": "temperature", "unit_of_measurement": "°C",
+                "device_class": "temperature", "unit_of_measurement": "°F",
                 "value_template": "{{ value_json.Temperature }}",
                 "device": {"identifiers": ["bme680_bridge"], "name": "BME680 Bridge"},
                 "availability_topic": "homeassistant/sensor/bme680/availability"
