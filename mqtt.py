@@ -27,7 +27,7 @@ PASSWORD = ""
 HOST = "homeassistant"
 PORT = 1883
 CLIENTID = "client-1"
-MAX_QOS_PACKET_ATTEMPTS = 10
+MAX_QOS_PACKET_ATTEMPTS = 10000
 
 STOP = Event()
 
