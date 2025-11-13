@@ -413,11 +413,12 @@ class MQTTSocketClient:
                             successfulPackets += 1
                             break
                     else:
+                        print("PUBREC Packet Not Received")
                         continue
 
                     itterations += 1
                     if itterations > MAX_QOS_PACKET_ATTEMPTS:
-                        print(f"Max QoS1 Send Attempts Reached.\nPacket: {packet}")
+                        print(f"Max QoS  Send Attempts Reached.\nPacket: {packet}")
                         break
 
                     packet = self.constructPublishPacket(key, value, qosLevel, itterations + successfulPackets, False)

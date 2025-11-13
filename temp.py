@@ -3,6 +3,7 @@ import os
 ## Constant
 # Specifies the IIO Base folder in Linux
 IIO_BASE = "/sys/bus/iio/devices/"
+DEVICE_INDEX = 1
 
 ## Helper Function
 # Converts from Celsius to Fahrenheit.
@@ -18,7 +19,7 @@ def find_iio_device():
     devices = [d for d in os.listdir(IIO_BASE) if d.startswith("iio:device")]
     if not devices:
         raise FileNotFoundError("No IIO devices detected")
-    return os.path.join(IIO_BASE, devices[1])
+    return os.path.join(IIO_BASE, devices[DEVICE_INDEX])
 
 ## Function to read various channels from an IIO Device
 # Function will be replaced with proper parsing code in later versions
