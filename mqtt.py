@@ -128,7 +128,7 @@ def constructPayload(self, payload: str) -> bytearray:
 # to an MQTT broker, along with publishing data to the broker.
 class MQTTSocketClient:
     ## MQTTSocketClient Constructor.
-    def init(self, clientID: str, username: str = None, password: str = None, host: str = "homeassistant", port: int = 1883, tls=False, keepalive=60, timeout=10):
+    def __init__(self, clientID: str, username: str = None, password: str = None, host: str = "homeassistant", port: int = 1883, tls=False, keepalive=60, timeout=10):
         self.clientID = clientID
         self.username = username
         self.password = password
@@ -299,8 +299,10 @@ class MQTTSocketClient:
         return fixedHeader + variableHeader + payload
 
     ## Function to create a MQTT PUBREL Packet
-    def constructPubRelPacket(self) -> bytes:
-        return bytes([ControlHeaderType.PUBREL, 0x00])
+    def constructPubRelPacket(self, packetID: int) -> bytes:
+        fixed_header = bytes([ControlHeaderType.PUBREL | 0x02, 0x02])
+        variable_header = packetID.to_bytes(2, 'big')
+        return fixed_header + variable_header
 
     ## Function to create a connection to a MQTT Broker.
     # Creates a connection to a MQTT Broker and varifies the connection.
@@ -373,7 +375,8 @@ class MQTTSocketClient:
             packet = self.constructPublishPacket(key, value, qosLevel, itterations, False)
 
             ## QoS level 1 logic.
-            if MQTTFlags.QOS1:
+            if qosLevel == MQTTFlags.QOS1:
+                print("using qos1")
                 while True:
                     self.sock.sendall(packet)
                     print(packet)
@@ -383,35 +386,41 @@ class MQTTSocketClient:
 
                     if inPacket[0] == ControlHeaderType.PUBACK:
                         successfulPackets += 1
-                        print(f"PUBACK Packet Received. Successful Packets: {successfulPackets}")
+                        #print(f"PUBACK Packet Received. Successful Packets: {successfulPackets}")
                         break
 
                     itterations += 1
                     if itterations > MAX_QOS_PACKET_ATTEMPTS:
-                        print(f"Max QoS1 Send Attempts Reached.\nPacket: {packet}")
+                        #print(f"Max QoS1 Send Attempts Reached.\nPacket: {packet}")
                         break
 
                     packet = self.constructPublishPacket(key, value, qosLevel, itterations, True)
 
             ## QoS level 2 logic.
-            elif MQTTFlags.QOS2:
+            elif qosLevel == MQTTFlags.QOS2:
+                print("using qos2")
                 while True:
                     self.sock.sendall(packet)
+                    print(f"Sent Packet: {packet}")
                     inPacket = self.receive_packet()
 
                     if inPacket[0] == ControlHeaderType.PUBREC:
-                        self.sock.sendall(self.constructPubRelPacket())
+                        print("PUBREC Packet Received")
+                        self.sock.sendall(self.constructPubRelPacket(itterations + successfulPackets))
                         inPacket == self.receive_packet()
                         if inPacket[0] == ControlHeaderType.PUBCOMP:
+                            print("PUBCOMP Packet Received")
                             successfulPackets += 1
                             break
+                    else:
+                        continue
 
                     itterations += 1
                     if itterations > MAX_QOS_PACKET_ATTEMPTS:
                         print(f"Max QoS1 Send Attempts Reached.\nPacket: {packet}")
                         break
 
-                    packet = self.constructPublishPacket(key, value, qosLevel, itterations, False)
+                    packet = self.constructPublishPacket(key, value, qosLevel, itterations + successfulPackets, False)
 
     ## Function to run code.
     # Temporary function to create a connection, verify connection, obtain sensor data, create a payload, publish data, then disconnect.
@@ -471,13 +480,17 @@ class MQTTSocketClient:
         }
 
         payload = json.dumps(sensorData)
+        payload = json.dumps({"Temperature": 120,
+                "Humidity": 41.3,
+                "Pressure": 1012.8,
+                "Gas": 12000})
 
 
         for topic, config in bme680config.items():
-            self.publish(topic, json.dumps(config), MQTTFlags.QOS1)
+            self.publish(topic, json.dumps(config), MQTTFlags.QOS2)
 
-        self.publish("homeassistant/sensor/bme680/availability", "online", MQTTFlags.QOS1)
-        self.publish("homeassistant/sensor/bme680/state", payload, MQTTFlags.QOS1)
+        self.publish("homeassistant/sensor/bme680/availability", "online", MQTTFlags.QOS2)
+        self.publish("homeassistant/sensor/bme680/state", payload, MQTTFlags.QOS2)
 
 
         for i in range(20, 0, -1):
