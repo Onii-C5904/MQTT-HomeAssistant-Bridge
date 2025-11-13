@@ -2,4 +2,4 @@
 
 Full documentation is available here:
 
-➡️ **[Project Documentation](docs/index_files.md)**  
+➡️ **[Project Documentation](docs/index_classes.md)**  
