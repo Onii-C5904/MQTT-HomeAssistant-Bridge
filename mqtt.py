@@ -372,6 +372,7 @@ class MQTTSocketClient:
             itterations = 1
             packet = self.constructPublishPacket(key, value, qosLevel, itterations, False)
 
+            ## QoS level 1 logic.
             if MQTTFlags.QOS1:
                 while True:
                     self.sock.sendall(packet)
@@ -392,6 +393,7 @@ class MQTTSocketClient:
 
                     packet = self.constructPublishPacket(key, value, qosLevel, itterations, True)
 
+            ## QoS level 2 logic.
             elif MQTTFlags.QOS2:
                 while True:
                     self.sock.sendall(packet)
