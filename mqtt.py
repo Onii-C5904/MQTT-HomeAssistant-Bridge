@@ -490,10 +490,10 @@ class MQTTSocketClient:
 
 
         for topic, config in bme680config.items():
-            self.publish(topic, json.dumps(config), MQTTFlags.QOS2)
+            self.publish(topic, json.dumps(config), MQTTFlags.QOS1)
 
-        self.publish("homeassistant/sensor/bme680/availability", "online", MQTTFlags.QOS2)
-        self.publish("homeassistant/sensor/bme680/state", payload, MQTTFlags.QOS2)
+        self.publish("homeassistant/sensor/bme680/availability", "online", MQTTFlags.QOS1)
+        self.publish("homeassistant/sensor/bme680/state", payload, MQTTFlags.QOS1)
 
 
         for i in range(20, 0, -1):
