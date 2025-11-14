@@ -486,10 +486,13 @@ class MQTTSocketClient:
         }
 
         payload = json.dumps(sensorData)
+        """
         payload = json.dumps({"Temperature": 120,
                 "Humidity": 41.3,
                 "Pressure": 1012.8,
                 "Gas": 12000})
+        """
+
 
 
         for topic, config in bme680config.items():
