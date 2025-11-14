@@ -443,10 +443,13 @@ class MQTTSocketClient:
         print("connection succeeded")
 
         sensorData = temp.parse_Data()
+
+        """
         sensorData = {"temperature": 120, # get rid of this later
                 "humidity": 41.3,
                 "pressure": 1012.8,
                 "gas": 12000}
+        """
 
         bme680topic = "homeassistant/sensor/bme680/state"
 
