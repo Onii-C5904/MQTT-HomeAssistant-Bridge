@@ -24,7 +24,7 @@ IIO_ATTRIBUTES = {'current_timestamp_clock': ('mA', 1), 'in_intensity_sampling_f
 ## Constants
 USERNAME = ""
 PASSWORD = ""
-HOST = "homeassistant"
+HOST = "homeassistant.local"
 PORT = 1883
 CLIENTID = "client-1"
 MAX_QOS_PACKET_ATTEMPTS = 10000
