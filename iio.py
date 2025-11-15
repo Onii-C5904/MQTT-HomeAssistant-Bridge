@@ -54,7 +54,7 @@ class Device:
 
         return data
 
-
+    ## Function to generate MQTT auto discovery configs
     def generateConfigs(self, clientID: str) -> dict:
         config = {}
 
@@ -86,7 +86,9 @@ class Device:
 
         return config
 
-
+## Function to parse devices on the system
+# This function finds all iio:deviceX's on the system
+# and wraps them in a Device object
 def find_iio_devices() -> list[Device]:
     if not os.path.exists(IIO_BASE):
         raise FileNotFoundError(f"No IIO devices found at {IIO_BASE}")
