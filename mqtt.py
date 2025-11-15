@@ -12,13 +12,11 @@ It:
 
 import socket
 import time
-from threading import Event
 import json
 import ssl
 from enum import IntEnum
 from helper import *
-import temp
-from iio import Device, find_iio_devices
+from iio import find_iio_devices
 
 ## Constants
 USERNAME = ""
@@ -26,9 +24,7 @@ PASSWORD = ""
 HOST = "homeassistant.local"
 PORT = 1883
 CLIENTID = "client-1"
-MAX_QOS_PACKET_ATTEMPTS = 10000
-
-STOP = Event()
+MAX_QOS_PACKET_ATTEMPTS = 1000
 
 ## Control Header Type Enum.
 # This enum contains the different packet identification flags for the MQTT Protocol.
@@ -386,7 +382,7 @@ class MQTTSocketClient:
 
                     itterations += 1
                     if itterations > MAX_QOS_PACKET_ATTEMPTS:
-                        #print(f"Max QoS1 Send Attempts Reached.\nPacket: {packet}")
+                        print(f"Max QoS Send Attempts Reached.\nPacket: {packet}")
                         break
 
                     packet = self.constructPublishPacket(key, value, qosLevel, itterations, True)
@@ -394,7 +390,12 @@ class MQTTSocketClient:
             ## QoS level 2 logic.
             elif qosLevel == MQTTFlags.QOS2:
                 print("using qos2")
+                _localItterations = 0
                 while True:
+                    if itterations > MAX_QOS_PACKET_ATTEMPTS:
+                        print(f"Max QoS Send Attempts Reached.\nPacket: {packet}")
+                        break
+
                     self.sock.sendall(packet)
                     print(f"Sent Packet: {packet}")
                     inPacket = self.receive_packet()
@@ -403,23 +404,20 @@ class MQTTSocketClient:
                         print("PUBREC Packet Received")
                         self.sock.sendall(self.constructPubRelPacket(itterations + successfulPackets))
                         inPacket = self.receive_packet()
+
                         if inPacket[0] == ControlHeaderType.PUBCOMP:
                             print("PUBCOMP Packet Received")
                             successfulPackets += 1
                             break
+
                         else:
                             print("PUBCOMP Packet Not Received")
+                            _localItterations += 1
                             continue
                     else:
                         print("PUBREC Packet Not Received")
+                        _localItterations += 1
                         continue
-
-                    itterations += 1
-                    if itterations > MAX_QOS_PACKET_ATTEMPTS:
-                        print(f"Max QoS  Send Attempts Reached.\nPacket: {packet}")
-                        break
-
-                    packet = self.constructPublishPacket(key, value, qosLevel, itterations + successfulPackets, False)
 
     ## Temporary function to publish all devices on the system
     def publishDevices(self):
@@ -434,6 +432,7 @@ class MQTTSocketClient:
             self.publish(device.availabilityTopic, "online", MQTTFlags.QOS1)
             self.publish(device.stateTopic, json.dumps(device.parse()), MQTTFlags.QOS1)
 
+
     ## Function to run code.
     # Temporary function to create a connection, verify connection, obtain sensor data, create a payload, publish data, then disconnect.
     # This function will be removed in further versions in favor of a proper API.
@@ -441,73 +440,13 @@ class MQTTSocketClient:
         print("Starting MQTT Client")
         try:
             self.connect()
+            print("connection succeeded")
+
         except Exception as e:
             print(f"Failed to connect to MQTT server at {self.host}:{self.port}. Error: {e}")
             self.sock.close()
             quit()
 
-        print("connection succeeded")
-
-        sensorData = temp.parse_Data()
-
-        """
-        sensorData = {"temperature": 120, # get rid of this later
-                "humidity": 41.3,
-                "pressure": 1012.8,
-                "gas": 12000}
-        """
-
-        bme680topic = "homeassistant/sensor/bme680/state"
-
-        bme680config = {
-            "homeassistant/sensor/bme680_temperature/config": {
-                "name": "BME680 Temperature", "unique_id": "bme680_temperature",
-                "state_topic": "homeassistant/sensor/bme680/state",
-                "device_class": "temperature", "unit_of_measurement": "°F",
-                "value_template": "{{ value_json.Temperature }}",
-                "device": {"identifiers": ["bme680_bridge"], "name": "BME680 Bridge"},
-                "availability_topic": "homeassistant/sensor/bme680/availability"
-            },
-            "homeassistant/sensor/bme680_humidity/config": {
-                "name": "BME680 Humidity", "unique_id": "bme680_humidity",
-                "state_topic": "homeassistant/sensor/bme680/state",
-                "device_class": "humidity", "unit_of_measurement": "%",
-                "value_template": "{{ value_json.Humidity }}",
-                "device": {"identifiers": ["bme680_bridge"]},
-                "availability_topic": "homeassistant/sensor/bme680/availability"
-            },
-            "homeassistant/sensor/bme680_pressure/config": {
-                "name": "BME680 Pressure", "unique_id": "bme680_pressure",
-                "state_topic": "homeassistant/sensor/bme680/state",
-                "device_class": "pressure", "unit_of_measurement": "hPa",
-                "value_template": "{{ value_json.Pressure }}",
-                "device": {"identifiers": ["bme680_bridge"]},
-                "availability_topic": "homeassistant/sensor/bme680/availability"
-            },
-            "homeassistant/sensor/bme680_gas/config": {
-                "name": "BME680 Gas", "unique_id": "bme680_gas",
-                "state_topic": "homeassistant/sensor/bme680/state",
-                "unit_of_measurement": "Ω",
-                "value_template": "{{ value_json.Gas }}",
-                "device": {"identifiers": ["bme680_bridge"]},
-                "availability_topic": "homeassistant/sensor/bme680/availability"
-            }
-        }
-
-        payload = json.dumps(sensorData)
-        """
-        payload = json.dumps({"Temperature": 120,
-                "Humidity": 41.3,
-                "Pressure": 1012.8,
-                "Gas": 12000})
-        """
-
-
-        for topic, config in bme680config.items():
-            self.publish(topic, json.dumps(config), MQTTFlags.QOS1)
-
-        self.publish("homeassistant/sensor/bme680/availability", "online", MQTTFlags.QOS1)
-        self.publish("homeassistant/sensor/bme680/state", payload, MQTTFlags.QOS2)
 
         self.publishDevices()
 
