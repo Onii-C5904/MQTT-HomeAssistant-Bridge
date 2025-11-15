@@ -122,9 +122,6 @@ def constructVariableHeader(headerFlags: bytes) -> bytearray:
 
     return variableHeader
 
-def constructPayload(self, payload: str) -> bytearray:
-    pass
-
 ## MQTT Client Class.
 # This class contains the code responsible for creating a connection
 # to an MQTT broker, along with publishing data to the broker.
@@ -347,9 +344,6 @@ class MQTTSocketClient:
         self.sock.sendall(self.constructDisconnectPacket())
         self.sock.close()
         self.sock = None
-
-    def ping(self):
-        pass
 
     ## Function to publish data to a MQTT topic.
     # Takes a MQTT topic, a topic data - str, int, float, bool, dict, and a QoS level.

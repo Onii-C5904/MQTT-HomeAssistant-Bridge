@@ -10,14 +10,15 @@ IIO_ATTRIBUTES = ['current_timestamp_clock', 'in_intensity_sampling_frequency', 
 ## Class to define a IIO Device object
 # Class contains the device's path, name, and attributes
 # Class has one method to parse and return the attribute data
-
 class Device:
+    ## Class Constructor
     def __init__(self, devicePath):
         self.devicePath = devicePath
         self.name = ""
         self.attributes = []
         self.__initDevice()
 
+    ## Function to handle top level device parsing
     def __initDevice(self) -> None:
         # Device Name
         with open(os.path.join(self.devicePath, "name"), "r") as f:
@@ -26,6 +27,8 @@ class Device:
         # Attributes
         self.attributes = [attr for attr in os.listdir(self.devicePath) if attr in IIO_ATTRIBUTES]
 
+    ## Function to parse attribute data
+    # Checks for a scale if available and applies it
     def parse(self) -> dict:
         data = {}
         for attr in self.attributes:
@@ -34,14 +37,14 @@ class Device:
 
                 try:
                     attributeData = float(attributeData)
-                    scale = attr.split("_")[:2]
-                    scalePathPart = f"{scale[0]}_{scale[1]}_scale"
-
+                    topLevelAttributeType = attr.split("_")[:2]
+                    scalePathPart = f"{topLevelAttributeType[0]}_{topLevelAttributeType[1]}_scale"
+                    # offsetPathPart = f"{topLevelAttributeType[0]}_{topLevelAttributeType[1]}_offset"
 
                     if os.path.exists(os.path.join(self.devicePath, scalePathPart)):
                         with open(os.path.join(self.devicePath, scalePathPart)) as scaleFile:
                             scaleData = float(scaleFile.readline().strip())
-                            data[attr] = attributeData * scaleData
+                            data[attr] = round(attributeData * scaleData, 2)
 
                 except ValueError:
                     data[attr] = attributeData
