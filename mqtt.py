@@ -424,6 +424,7 @@ class MQTTSocketClient:
 
                     packet = self.constructPublishPacket(key, value, qosLevel, itterations + successfulPackets, False)
 
+    ## Temporary function to publish all devices on the system
     def publishDevices(self):
         devices = find_iio_devices()
 
