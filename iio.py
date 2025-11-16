@@ -39,6 +39,7 @@ class Device:
     # Checks for a scale if available and applies it
     def parse(self) -> dict:
         data = {}
+        print(self.abiAttributes)
         for i, attr in enumerate(self.abiAttributes):
             path = os.path.join(self.devicePath, attr)
             print(f"[{i}] attr={repr(attr)} path={repr(path)}")
@@ -113,4 +114,4 @@ def find_iio_devices() -> list[Device]:
 if __name__ == "__main__":
     devices = find_iio_devices()
     for d in devices:
-        print(d.parse())
+        d.parse()
