@@ -21,7 +21,7 @@ from iio import find_iio_devices
 ## Constants
 USERNAME = ""
 PASSWORD = ""
-HOST = "homeassistant.local"
+HOST = "homeassistant"
 PORT = 1883
 CLIENTID = "client-1"
 MAX_QOS_PACKET_ATTEMPTS = 1000
