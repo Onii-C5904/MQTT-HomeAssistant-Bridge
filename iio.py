@@ -39,17 +39,14 @@ class Device:
     # Checks for a scale if available and applies it
     def parse(self) -> dict:
         data = {}
-        print(self.abiAttributes)
         for i, attr in enumerate(self.abiAttributes):
             path = os.path.join(self.devicePath, attr)
-            print(f"[{i}] attr={repr(attr)} path={repr(path)}")
 
             with open(path, "r") as f:
-                print(f"  opening {path}")
                 attributeData = f.read().strip()
-                print(f"  value={repr(attributeData)}")
 
             try:
+                print(attributeData)
                 attributeData = float(attributeData)
                 topLevelAttributeType = attr.split("_")[:2]
                 scalePathPart = f"{topLevelAttributeType[0]}_{topLevelAttributeType[1]}_scale"
