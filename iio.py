@@ -114,3 +114,4 @@ if __name__ == "__main__":
     devices = find_iio_devices()
     for d in devices:
         print(d.parse())
+        print(d.generateConfigs("client-1"))
