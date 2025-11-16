@@ -46,7 +46,6 @@ class Device:
                 attributeData = f.read().strip()
 
             try:
-                print(attributeData)
                 attributeData = float(attributeData)
                 topLevelAttributeType = attr.split("_")[:2]
                 scalePathPart = f"{topLevelAttributeType[0]}_{topLevelAttributeType[1]}_scale"
@@ -56,6 +55,9 @@ class Device:
                     with open(scalePath) as scaleFile:
                         scaleData = float(scaleFile.read().strip())
                         data[attr] = round(attributeData * scaleData, 2)
+
+                else:
+                    data[attr] = round(attributeData, 2)
 
             except ValueError:
                 data[attr] = attributeData
@@ -111,4 +113,4 @@ def find_iio_devices() -> list[Device]:
 if __name__ == "__main__":
     devices = find_iio_devices()
     for d in devices:
-        d.parse()
+        print(d.parse())
