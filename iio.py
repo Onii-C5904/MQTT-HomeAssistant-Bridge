@@ -54,7 +54,7 @@ class Device:
                 if os.path.exists(scalePath):
                     with open(scalePath) as scaleFile:
                         scaleData = float(scaleFile.read().strip())
-                        data[attr] = round(attributeData * scaleData, 2)
+                        data[attr] = round(attributeData * scaleData * IIO_META.get(attr)[1], 2)
 
                 else:
                     data[attr] = round(attributeData, 2)
