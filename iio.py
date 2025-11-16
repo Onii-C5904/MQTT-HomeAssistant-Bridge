@@ -25,7 +25,7 @@ class Device:
     def __initDevice(self) -> None:
         # Device Name
         with open(os.path.join(self.devicePath, "name"), "r") as f:
-            self.name = f.readline().strip()
+            self.name = f.read().strip()
 
         # Attributes
         for attr in os.listdir(self.devicePath):
@@ -39,24 +39,28 @@ class Device:
     # Checks for a scale if available and applies it
     def parse(self) -> dict:
         data = {}
-        for attr in self.abiAttributes:
-            with open(os.path.join(self.devicePath, attr), "r") as f:
-                print(os.path.join(self.devicePath, attr))
+        for i, attr in enumerate(self.abiAttributes):
+            path = os.path.join(self.devicePath, attr)
+            print(f"[{i}] attr={repr(attr)} path={repr(path)}")
+
+            with open(path, "r") as f:
+                print(f"  opening {path}")
                 attributeData = f.read().strip()
+                print(f"  value={repr(attributeData)}")
 
-                try:
-                    attributeData = float(attributeData)
-                    topLevelAttributeType = attr.split("_")[:2]
-                    scalePathPart = f"{topLevelAttributeType[0]}_{topLevelAttributeType[1]}_scale"
-                    # offsetPathPart = f"{topLevelAttributeType[0]}_{topLevelAttributeType[1]}_offset"
+            try:
+                attributeData = float(attributeData)
+                topLevelAttributeType = attr.split("_")[:2]
+                scalePathPart = f"{topLevelAttributeType[0]}_{topLevelAttributeType[1]}_scale"
+                scalePath = os.path.join(self.devicePath, scalePathPart)
 
-                    if os.path.exists(os.path.join(self.devicePath, scalePathPart)):
-                        with open(os.path.join(self.devicePath, scalePathPart)) as scaleFile:
-                            scaleData = float(scaleFile.readline().strip())
-                            data[attr] = round(attributeData * scaleData, 2)
+                if os.path.exists(scalePath):
+                    with open(scalePath) as scaleFile:
+                        scaleData = float(scaleFile.read().strip())
+                        data[attr] = round(attributeData * scaleData, 2)
 
-                except ValueError:
-                    data[attr] = attributeData
+            except ValueError:
+                data[attr] = attributeData
 
         return data
 
@@ -109,4 +113,4 @@ def find_iio_devices() -> list[Device]:
 if __name__ == "__main__":
     devices = find_iio_devices()
     for d in devices:
-        print(d.parse())
+        d.parse()
