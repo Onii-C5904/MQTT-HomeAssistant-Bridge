@@ -13,11 +13,12 @@ class Device:
     ## Class Constructor
     def __init__(self, devicePath):
         self.devicePath = devicePath
-        self.deviceID: int
-        self.name: str
-        self.stateTopic: str
-        self.availabilityTopic: str
-        self.attributes: list
+        self.deviceID: int = 0
+        self.name: str = ""
+        self.stateTopic: str = ""
+        self.availabilityTopic: str = ""
+        self.abiAttributes: list = []
+        self.genericAttributes: list = []
         self.__initDevice()
 
     ## Function to handle top level device parsing
@@ -27,13 +28,18 @@ class Device:
             self.name = f.readline().strip()
 
         # Attributes
-        self.attributes = [attr for attr in os.listdir(self.devicePath) if attr in IIO_ATTRIBUTES]
+        for attr in os.listdir(self.devicePath):
+            if attr in IIO_META.keys():
+                self.abiAttributes.append(attr)
+            else:
+                if attr.startswith("in_"):
+                    self.genericAttributes.append(attr)
 
     ## Function to parse attribute data
     # Checks for a scale if available and applies it
     def parse(self) -> dict:
         data = {}
-        for attr in self.attributes:
+        for attr in self.abiAttributes:
             with open(os.path.join(self.devicePath, attr), "r") as f:
                 print(os.path.join(self.devicePath, attr))
                 attributeData = f.read().strip()
@@ -58,7 +64,7 @@ class Device:
     def generateConfigs(self, clientID: str) -> dict:
         config = {}
 
-        for attr in self.attributes:
+        for attr in self.abiAttributes:
             _configTopic = f"homeassistant/sensor/{self.name}_{attr}/config"
             _name = f"{self.name.upper()} {attr.title()}"
             _uniqueID = f"{self.name.lower()}_{attr.lower()}_{self.deviceID}"
@@ -98,9 +104,9 @@ def find_iio_devices() -> list[Device]:
     for index, _ in enumerate(_physicalDevices):
         _physicalDevices[index].deviceID = index
 
-    return [d for d in _physicalDevices if len(d.attributes)]
+    return [d for d in _physicalDevices if len(d.abiAttributes)]
 
 if __name__ == "__main__":
     devices = find_iio_devices()
-
-    devices[0].parse()
+    for d in devices:
+        print(d.parse())
