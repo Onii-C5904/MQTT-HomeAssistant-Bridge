@@ -336,9 +336,10 @@ class MQTTSocketClient:
     # Contains logic to disconnect from a MQTT Broker and free the socket.
     # Will be refined in future versions.
     def disconnect(self):
-        self.sock.sendall(self.constructDisconnectPacket())
-        self.sock.close()
-        self.sock = None
+        if self.sock is not None:
+            self.sock.sendall(self.constructDisconnectPacket())
+            self.sock.close()
+            self.sock = None
 
     ## Function to publish data to a MQTT topic.
     # Takes a MQTT topic, a topic data - str, int, float, bool, dict, and a QoS level.
