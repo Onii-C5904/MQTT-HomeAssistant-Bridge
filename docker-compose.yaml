@@ -32,6 +32,7 @@ services:
     container_name: iio-mqtt-bridge
     volumes:
       - /sys/bus/iio:/sys/bus/iio
+      - ./config/bridge_config.json:/app/config/bridge_config.json
     restart: unless-stopped
     network_mode: "service:mosquitto"
     environment:
