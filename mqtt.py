@@ -456,14 +456,21 @@ class MQTTSocketClient:
             self.sock.close()
             quit()
 
+        try:
+            while True:
+                self.publishDevices()
+                time.sleep(PUBLISH_INTERVAL)
+        except KeyboardInterrupt:
+            print("Stopping MQTT Client")
+            self.disconnect()
 
-        self.publishDevices()
-
+        # Demo publishing code
+        """
         for i in range(20, 0, -1):
             print(f"Stopping in {i}...")
             time.sleep(1)
-
         self.disconnect()
+        """
 
 ## Test Code
 if __name__ == "__main__":
