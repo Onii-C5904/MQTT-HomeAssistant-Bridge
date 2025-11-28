@@ -1,0 +1,42 @@
+version: '3'
+services:
+  homeassistant:
+    container_name: homeassistant
+    image: "ghcr.io/home-assistant/home-assistant:stable"
+    volumes:
+      - /opt/homeassistant/config:/config
+      - /etc/localtime:/etc/localtime:ro
+      - /run/dbus:/run/dbus:ro
+    restart: unless-stopped
+    privileged: true
+    network_mode: host
+    environment:
+      TZ: America/Detroit
+    depends_on:
+      - mosquitto
+  mosquitto:
+    image: eclipse-mosquitto
+    container_name: mosquitto
+    volumes:
+      - ./config/mosquitto/:/mosquitto/config
+      - /opt/mosquitto:/mosquitto
+      - /opt/mosquitto/data:/mosquitto/data
+      - /opt/mosquitto/log:/mosquitto/log
+    restart: unless-stopped
+    ports:
+      - 1883:1883
+      - 9001:9001
+    environment:
+      TZ: America/Detroit
+  iio-mqtt-bridge:
+    container_name: iio-mqtt-bridge
+    volumes:
+      - /sys/bus/iio:/sys/bus/iio
+    restart: unless-stopped
+    network_mode: "service:mosquitto"
+    environment:
+      TZ: America/Detroit
+    depends_on:
+      - mosquitto
+    build:
+      context: .
