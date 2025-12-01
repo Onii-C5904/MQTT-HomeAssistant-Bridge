@@ -1,1 +1,0 @@
-python main.py server 127.0.0.1 65432
