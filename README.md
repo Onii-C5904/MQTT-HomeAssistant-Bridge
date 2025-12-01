@@ -33,16 +33,15 @@ password_file /mosquitto/config/password.txt
 
 `./config/mosquitto/password.txt`
 ```
-oniic:$7$101$fGrn8glRk+LsAWwt$I00jtYDPv8R7jN3YJrrA1E6AI3JKyPtuGFy8c2N1A7E25l8xDsahdsQ7su1+IXT2/qF1ouuz/3TBW7KRR5y6Fw==
+USER:$7$101$fGrn8glRk+LsAWwt$I00jtYDPv8R7jN3YJrrA1E6AI3JKyPtuGFy8c2N1A7E25l8xDsahdsQ7su1+IXT2/qF1ouuz/3TBW7KRR5y6Fw==
 ```
-Default login: oniic Saltersimp5904
 
 ## Bridge
 `./config/bridge_config.json`
 ```json
 {
-    "username": "oniic",
-    "password": "Saltersimp5904",
+    "username": "USER",
+    "password": "PASSWORD",
     "host": "127.0.0.1",
     "port": 1883,
     "client_id": "client-1",
