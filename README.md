@@ -11,7 +11,7 @@ To run the demo, ensure Docker is installed.
 2. Go to http://beagleplay.local:8123/ and complete the HomeAssistant setup process.
 3. Once your account is created in HomeAssistant, click the Settings button in the bottom left. 
 4. Click Add integration. Search `mqtt` in the brand name field. Select the first result.
-5. For MQTT connection information, enter `localhost` for the host. Enter the username and password of the MQTT broker. For the demo, use user `oniic` and password `Saltersimp5904`.
+5. For MQTT connection information, enter `localhost` for the host. Enter the username and password of the MQTT broker. For the demo, use user `USER` and password `PASSWORD`.
     - NOTE: If you wish to change the credentials, run `docker exec -it mosquitto mosquitto_passwd -c /mosquitto/config/password.txt YOUR_USERNAME_HERE`. Update the broker details in `./config/bridge_config.json`. Update the connection information in Home Assistant.
 6. Home Assistant may prompt with "Device created" for each IIO sensor. Click "Skip and finish" or assign an Area.
 7. To shut the demo down, run `./docker-quit.sh` to stop and remove the containers.
@@ -33,7 +33,7 @@ password_file /mosquitto/config/password.txt
 
 `./config/mosquitto/password.txt`
 ```
-USER:$7$101$fGrn8glRk+LsAWwt$I00jtYDPv8R7jN3YJrrA1E6AI3JKyPtuGFy8c2N1A7E25l8xDsahdsQ7su1+IXT2/qF1ouuz/3TBW7KRR5y6Fw==
+USER:$7$101$km9b4KooTiue2n/6$zMa0hlY7VJzEmoAD+1igOXVuW23ap4PiItF3i0gehQxeRzD89bJLe+aNVLZ0PN0ZCXpSYg4hU29dQE5ApmVK9Q==
 ```
 
 ## Bridge

@@ -26,13 +26,13 @@ except FileNotFoundError:
     print("Configuration file 'config/bridge_config.json' not found. Using default settings.")
     config_data = {}
 
-USERNAME = config_data.get("username", "oniic")
-PASSWORD = config_data.get("password", "Saltersimp5904")
-HOST = config_data.get("host", "homeassistant.local")
+USERNAME = config_data.get("username", "USER")
+PASSWORD = config_data.get("password", "PASSWORD")
+HOST = config_data.get("host", "127.0.0.1")
 PORT = config_data.get("port", 1883)
 CLIENTID = config_data.get("client_id", "client-1")
 MAX_QOS_PACKET_ATTEMPTS = config_data.get("max_qos_packet_attempts", 1000)  # Maximum number of attempts to send a QoS packet
-PUBLISH_INTERVAL = config_data.get("publish_interval", 1)  # How long to wait between publishing device data in seconds
+PUBLISH_INTERVAL = config_data.get("publish_interval", 5)  # How long to wait between publishing device data in seconds
 
 ## Control Header Type Enum.
 # This enum contains the different packet identification flags for the MQTT Protocol.
