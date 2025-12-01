@@ -1,1 +1,0 @@
-python main.py hybrid 127.0.0.1
