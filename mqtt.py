@@ -18,13 +18,21 @@ from enum import IntEnum
 from helper import *
 from iio import find_iio_devices
 
-## Constants
-USERNAME = ""
-PASSWORD = ""
-HOST = "homeassistant.local"
-PORT = 1883
-CLIENTID = "client-1"
-MAX_QOS_PACKET_ATTEMPTS = 1000
+## Load Constants from Configuration File
+try:
+    with open("config/bridge_config.json", 'r') as config_file:
+        config_data = json.load(config_file)
+except FileNotFoundError:
+    print("Configuration file 'config/bridge_config.json' not found. Using default settings.")
+    config_data = {}
+
+USERNAME = config_data.get("username", "oniic")
+PASSWORD = config_data.get("password", "Saltersimp5904")
+HOST = config_data.get("host", "homeassistant.local")
+PORT = config_data.get("port", 1883)
+CLIENTID = config_data.get("client_id", "client-1")
+MAX_QOS_PACKET_ATTEMPTS = config_data.get("max_qos_packet_attempts", 1000)  # Maximum number of attempts to send a QoS packet
+PUBLISH_INTERVAL = config_data.get("publish_interval", 1)  # How long to wait between publishing device data in seconds
 
 ## Control Header Type Enum.
 # This enum contains the different packet identification flags for the MQTT Protocol.
@@ -431,7 +439,16 @@ class MQTTSocketClient:
                 self.publish(topic, json.dumps(config), MQTTFlags.QOS1)
 
             self.publish(device.availabilityTopic, "online", MQTTFlags.QOS1)
-            self.publish(device.stateTopic, json.dumps(device.parse()), MQTTFlags.QOS1)
+            while True:
+                try:
+                    parsed_device_data = device.parse()
+                    break
+
+                except OSError as e:
+                    print(f"Failed to read device {device.name}. Error: {e}. Retrying in 1 second...")
+                    time.sleep(1)
+
+            self.publish(device.stateTopic, json.dumps(parsed_device_data), MQTTFlags.QOS1)
 
 
     ## Function to run code.
@@ -448,16 +465,23 @@ class MQTTSocketClient:
             self.sock.close()
             quit()
 
+        try:
+            while True:
+                self.publishDevices()
+                time.sleep(PUBLISH_INTERVAL)
+        except KeyboardInterrupt:
+            print("Stopping MQTT Client")
+            self.disconnect()
 
-        self.publishDevices()
-
+        # Demo publishing code
+        """
         for i in range(20, 0, -1):
             print(f"Stopping in {i}...")
             time.sleep(1)
-
         self.disconnect()
+        """
 
 ## Test Code
 if __name__ == "__main__":
-    client = MQTTSocketClient(CLIENTID, username="oniic", password="Saltersimp5904", host=HOST, port=PORT)
+    client = MQTTSocketClient(CLIENTID, username=USERNAME, password=PASSWORD, host=HOST, port=PORT)
     client.run()

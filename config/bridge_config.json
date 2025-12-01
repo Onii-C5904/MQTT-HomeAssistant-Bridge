@@ -1,0 +1,9 @@
+{
+    "username": "oniic",
+    "password": "Saltersimp5904",
+    "host": "127.0.0.1",
+    "port": 1883,
+    "client_id": "client-1",
+    "max_qos_packet_attempts": 1000,
+    "publish_interval": 5
+}

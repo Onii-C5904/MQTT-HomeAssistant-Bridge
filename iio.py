@@ -42,8 +42,12 @@ class Device:
         for i, attr in enumerate(self.abiAttributes):
             path = os.path.join(self.devicePath, attr)
 
-            with open(path, "r") as f:
-                attributeData = f.read().strip()
+            try:
+                with open(path, "r") as f:
+                    attributeData = f.read().strip()
+            except OSError as e:
+                # Catch when attribute is not readable. This often occurs soon after booting.
+                raise OSError(f"The IIO attribute {path} is not ready to be read. Please wait a moment and try again. {e}")
 
             try:
                 attributeData = float(attributeData)
