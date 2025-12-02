@@ -10,7 +10,7 @@ To run the demo, ensure Docker is installed.
     - NOTE: The default docker-compose file uses homeassistant and mosquitto folders in `/opt/`. The Mosquitto broker config is stored in `./config/mosquitto/`.
 2. Go to http://beagleplay.local:8123/ and complete the HomeAssistant setup process.
 3. Once your account is created in HomeAssistant, click the Settings button in the bottom left. 
-4. Click Add integration. Search `mqtt` in the brand name field. Select the first result.
+4. Click Devices & services, then click Add integration. Search `mqtt` in the brand name field. Select the first result.
 5. For MQTT connection information, enter `localhost` for the host. Enter the username and password of the MQTT broker. For the demo, use user `USER` and password `PASSWORD`.
     - NOTE: If you wish to change the credentials, run `docker exec -it mosquitto mosquitto_passwd -c /mosquitto/config/password.txt YOUR_USERNAME_HERE`. Update the broker details in `./config/bridge_config.json`. Update the connection information in Home Assistant.
 6. Home Assistant may prompt with "Device created" for each IIO sensor. Click "Skip and finish" or assign an Area.
